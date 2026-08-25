@@ -31,9 +31,12 @@ and component columns are auto-detected (matching is case-insensitive).
   via the tab bar (we'll keep one):
   - **Version 1 — 15 buckets:** a diverging heatmap of the fund's 15 current active
     weights (grouped Value / Size / Prof), hover a cell for its bucket + weight.
-  - **Version 2 — 3 components:** a diverging heatmap of the three factor-group TE
-    contributions (`value_/size_/prof_distance`); hover a component to see that
-    factor's five underlying bucket weights. (Needs the component columns.)
+  - **Version 2 — 3 components:** a 3-cell heatmap of the factor-group TE
+    contributions (`value_/size_/prof_distance`) — **redder = a bigger part of the
+    fund's distance**, blue = a factor that *hedges* (negative contribution), pale ≈
+    on target. Hover a cell for its **% share of TE**, the **Δ vs the prior date**
+    (trend), and that factor's five underlying bucket weights. (Needs the component
+    columns.)
 - **Bucket posture** — click a fund to see its 15 active weights as a diverging bar
   chart (filled = current, marker = prior; up = overweight, down = underweight).
 

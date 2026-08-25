@@ -105,6 +105,7 @@
   .legend{display:flex;gap:16px;align-items:center;font-size:12px;color:var(--ink2);flex-wrap:wrap}
   .swatch{display:inline-block;width:60px;height:12px;border-radius:3px;vertical-align:middle;
           background:linear-gradient(90deg,var(--neg),var(--mid),var(--pos))}
+  .swatch.rev{background:linear-gradient(90deg,var(--pos),var(--mid),var(--neg))}
   #tooltip{position:fixed;pointer-events:none;background:var(--ink);color:var(--surface);
            font-size:12px;padding:5px 8px;border-radius:6px;opacity:0;transition:opacity .08s;z-index:50;
            font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -327,6 +328,13 @@ function initUI(){
     return `rgb(${c[0]},${c[1]},${c[2]})`;
   }
   const wColor = w => divColor(w, wscale);
+  // component heatmap: RED = bigger positive contributor to TE, BLUE = hedges (negative), pale ~ on target
+  function compColor(v){
+    if(v==null) return "var(--line)";
+    const t=Math.min(Math.abs(v)/(compScale||1),1), pole = v>=0?NEG:POS;  // NEG=red for +, POS=blue for -
+    const c = GRAY.map((g,i)=> Math.round(g+(pole[i]-g)*t));
+    return `rgb(${c[0]},${c[1]},${c[2]})`;
+  }
 
   // ---- file loading ----
   drop.addEventListener("click", ()=> fileInput.click());
@@ -456,11 +464,18 @@ function initUI(){
     let out=`<div class="hm3">`;
     COMP.forEach(([key,lab],gi)=>{
       const v=r.compCurr[gi];
+      const p=r.compPrior?r.compPrior[gi]:null;
+      const d=(v!=null&&p!=null)?v-p:null;
+      const share=(v!=null&&r.distCurr)?` &middot; ${Math.round(v/r.distCurr*100)}% of TE`:"";
+      const trend = d==null ? "n/a (new)"
+                  : `${d>0?"▲ +":(d<0?"▼ ":"")}${d.toFixed(3)}${p!=null?` (was ${p.toFixed(3)})`:""}`;
       const fac = key==="prof"?"profit":key;
       const detail = wmeta.filter(m=>m.factor===fac)
         .map(m=>{ const w=r.wCurr?r.wCurr[m.idx]:null; return `Q${m.bucket-1} ${w==null?"—":w.toFixed(4)}`; }).join(" &middot; ");
-      const tip = `${lab} contribution ${v==null?"—":v.toFixed(3)}<br><small>${detail}</small>`;
-      out+=`<i style="background:${divColor(v,compScale)}" data-tip="${tip}"></i>`;
+      const tip = `<b>${lab}</b> contribution ${v==null?"—":v.toFixed(3)}${share}`
+        + `<br>trend vs prior: ${trend}`
+        + `<br><small>buckets ${detail}</small>`;
+      out+=`<i style="background:${compColor(v)}" data-tip="${tip}"></i>`;
     });
     return out+`</div>`;
   }
@@ -482,7 +497,7 @@ function initUI(){
     const comp = heatMode==="comp3" && model.componentCols;
     $("headHeat").textContent = comp ? "Components (current)" : "Buckets (current)";
     $("explLegend").innerHTML =
-      (comp ? `<span>TE contribution <span class="swatch"></span> hedges (&minus;) &rarr; adds (+)</span>`
+      (comp ? `<span>TE contribution: hedges <span class="swatch rev"></span> bigger part (redder)</span>`
             : `<span>Active weight <span class="swatch"></span> under &rarr; over</span>`)
       + `<span class="delta up">&#9650; rising</span><span class="delta down">&#9660; falling</span>`;
     const flat=$("viewSel").value==="flat";
