@@ -14,7 +14,8 @@ browser**.
 ## Expected columns
 Per row (one portfolio/vehicle):
 `VehicleCode, FundName, PMName, PMDeputy, StrategyName`, the 15 active weights
-`Value_2..Value_6, Size_2..Size_6, Profit_2..Profit_6`, and `bucket_distance`.
+`Value_2..Value_6, Size_2..Size_6, Prof_2..Prof_6` (the profit prefix may also be
+spelled `Profit_*`), and `bucket_distance`.
 **Any other columns are ignored** (detected and listed on load). The weight columns
 and distance column are auto-detected (distance match is case-insensitive).
 

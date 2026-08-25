@@ -213,7 +213,7 @@ function detectDateFromName(name){
   return null;
 }
 const _norm = s => String(s).toLowerCase().replace(/[^a-z0-9]/g,"");
-function detectWeightCols(header){ return header.filter(h => /^(value|size|profit)_[2-6]$/i.test(h)); }
+function detectWeightCols(header){ return header.filter(h => /^(value|size|prof(?:it)?)_[2-6]$/i.test(h)); }
 function detectDistanceCol(header){ return header.find(h => _norm(h) === "bucketdistance") || null; }
 function num(v){ const x = parseFloat(v); return Number.isFinite(x) ? x : null; }
 
@@ -221,8 +221,10 @@ function num(v){ const x = parseFloat(v); return Number.isFinite(x) ? x : null; 
 function parseWeightCols(wCols){
   const ORD = {value:0, size:1, profit:2};
   return wCols.map((c,idx)=>{
-    const m = c.match(/^(value|size|profit)_([2-6])$/i);
-    return {col:c, idx, factor:m?m[1].toLowerCase():c, bucket:m?+m[2]:0};
+    const m = c.match(/^(value|size|prof(?:it)?)_([2-6])$/i);
+    let f = m ? m[1].toLowerCase() : c;
+    if(f.indexOf("prof")===0) f="profit";        // normalise Prof/Profit -> profit
+    return {col:c, idx, factor:f, bucket:m?+m[2]:0};
   }).sort((a,b)=> (ORD[a.factor]-ORD[b.factor]) || (a.bucket-b.bucket));
 }
 function buildRecords(prior, current){

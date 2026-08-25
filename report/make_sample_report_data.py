@@ -45,7 +45,7 @@ import bucket_te as bt           # noqa: E402
 import french_portfolios as fp   # noqa: E402
 
 OUT_DIR = Path(__file__).resolve().parent          # write CSVs into report/
-FACTORS = ["Value", "Size", "Profit"]
+FACTORS = ["Value", "Size", "Prof"]   # real data names profitability buckets "Prof_*"
 BUCKETS = [2, 3, 4, 5, 6]
 WEIGHT_COLS = [f"{f}_{b}" for f in FACTORS for b in BUCKETS]
 
