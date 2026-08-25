@@ -25,13 +25,18 @@ Notes on the sample window:
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 MONTHS_PER_YEAR = 12
 MIN_MONTHS = 120  # estimation-window floor (10 years) unless overridden
-DEFAULT_RETURNS = os.path.join("output", "quintiles_monthly_vw_returns.csv")
+
+# Anchor default I/O to this file, not the current working directory.
+REPO_DIR = Path(__file__).resolve().parent
+DEFAULT_OUT = REPO_DIR / "output"
+DEFAULT_RETURNS = DEFAULT_OUT / "quintiles_monthly_vw_returns.csv"
 
 
 # --------------------------------------------------------------------------- #
@@ -123,7 +128,7 @@ def diagnostics(cov: pd.DataFrame) -> dict:
 # --------------------------------------------------------------------------- #
 # Runner / report
 # --------------------------------------------------------------------------- #
-def run_cov(returns_path: str = DEFAULT_RETURNS, out_dir: str = "output",
+def run_cov(returns_path=DEFAULT_RETURNS, out_dir=DEFAULT_OUT,
             lookback_months: int | None = None, min_months: int = MIN_MONTHS,
             annualize: bool = True, verbose: bool = True):
     """Load a lined-up returns file, compute the equal-weighted sample covariance

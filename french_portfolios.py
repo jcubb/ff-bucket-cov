@@ -31,11 +31,18 @@ import re
 import zipfile
 from collections import OrderedDict
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 BASE_URL = "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/"
+
+# Anchor default I/O locations to this file, not the current working directory,
+# so the pipeline behaves the same regardless of where python is launched.
+REPO_DIR = Path(__file__).resolve().parent
+DATA_DIR = REPO_DIR / "data"
+OUT_DIR = REPO_DIR / "output"
 
 # short key -> (file stem on the French FTP, human label)
 DATASETS = OrderedDict([
@@ -383,7 +390,7 @@ def lined_up_quintiles(datasets) -> pd.DataFrame:
 # --------------------------------------------------------------------------- #
 # Orchestration + retention
 # --------------------------------------------------------------------------- #
-def run(data_dir="data", out_dir="output", base_url=BASE_URL, allow_download=True,
+def run(data_dir=DATA_DIR, out_dir=OUT_DIR, base_url=BASE_URL, allow_download=True,
         verbose=True):
     os.makedirs(out_dir, exist_ok=True)
     parsed = []
