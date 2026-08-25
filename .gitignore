@@ -1,0 +1,13 @@
+# Re-downloadable French source zips (fetched by french_portfolios.py)
+data/
+
+# Generated results (covariance, lined-up returns, retained sub-tables)
+output/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS / editor cruft
+.DS_Store
