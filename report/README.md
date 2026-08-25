@@ -15,18 +15,25 @@ browser**.
 Per row (one portfolio/vehicle):
 `VehicleCode, FundName, PMName, PMDeputy, StrategyName`, the 15 active weights
 `Value_2..Value_6, Size_2..Size_6, Prof_2..Prof_6` (the profit prefix may also be
-spelled `Profit_*`), and `bucket_distance`.
-**Any other columns are ignored** (detected and listed on load). The weight columns
-and distance column are auto-detected (distance match is case-insensitive).
+spelled `Profit_*`), and `bucket_distance`. Optionally the three factor-group
+contribution columns `value_distance, size_distance, prof_distance` (from
+`bucket_te.add_bucket_distance`) — present them and the **Version 2** page unlocks.
+**Any other columns are ignored** (detected and listed on load). The weight, distance,
+and component columns are auto-detected (matching is case-insensitive).
 
 ## What it shows
 - **Summary** — matched / entries / exits and counts of rising vs falling distance.
 - **Where distance is rising** — funds ranked by Δ`bucket_distance`, threshold slider.
 - **Hierarchy** — a pivot **PMDeputy › PMName › StrategyName › Fund**. All metrics
-  live on the **fund row** (current distance, Δ distance, a 15-bucket diverging
-  heatmap of current active weights); parent rows are grouping headers with a fund
-  count and an *n rising* badge (counts only — **no metric roll-ups**). A flat
-  sortable view is available too.
+  live on the **fund row** (current distance, Δ distance, and a heatmap); parent rows
+  are grouping headers with a fund count and an *n rising* badge (counts only — **no
+  metric roll-ups**). A flat sortable view is available too. Two candidate versions
+  via the tab bar (we'll keep one):
+  - **Version 1 — 15 buckets:** a diverging heatmap of the fund's 15 current active
+    weights (grouped Value / Size / Prof), hover a cell for its bucket + weight.
+  - **Version 2 — 3 components:** a diverging heatmap of the three factor-group TE
+    contributions (`value_/size_/prof_distance`); hover a component to see that
+    factor's five underlying bucket weights. (Needs the component columns.)
 - **Bucket posture** — click a fund to see its 15 active weights as a diverging bar
   chart (filled = current, marker = prior; up = overweight, down = underweight).
 

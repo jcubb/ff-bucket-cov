@@ -76,5 +76,13 @@ eq(!!(osei && osei.children.get("K. Adler")), true, "K. Adler nested under M. Os
 const adler = osei.children.get("K. Adler");
 eq(adler.funds>=3, true, "K. Adler has >=3 funds");
 
+// --- component (marginal-contribution) columns ---
+eq(BR.detectComponentCols(b.parsed.header).value, "value_distance", "value_distance detected");
+eq(BR.detectComponentCols(b.parsed.header).prof, "prof_distance", "prof_distance detected");
+eq(!!rec.componentCols, true, "component cols surfaced on records");
+eq(vh10.compCurr.length, 3, "compCurr has 3 factor groups");
+const csum = vh10.compCurr.reduce((a,x)=>a+x,0);
+eq(Math.abs(csum - vh10.distCurr) < 0.01, true, "compCurr sums to bucket_distance");
+
 console.log(`\n${fail? "SELFTEST FAILED":"ALL SELFTESTS PASSED"}  (${pass} ok, ${fail} failed)`);
 process.exit(fail?1:0);

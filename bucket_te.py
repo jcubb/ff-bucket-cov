@@ -137,6 +137,7 @@ def add_bucket_distance(
     agg: str = "sum",
     keep_disaggregated: bool = False,
     out_col: str = "bucket_distance",
+    contributions: bool = True,
 ) -> pd.DataFrame:
     """Aggregate `df`'s disaggregated bucket columns to the 15 factor buckets and
     append `out_col` = sqrt(xᵀ Σ x) per vehicle.
@@ -144,9 +145,16 @@ def add_bucket_distance(
     Σ is the equal-weighted sample covariance of the quintile return histories,
     recomputed over the requested window (`lookback_months`, or `start`/`end`).
 
+    When `contributions=True` (default) also appends one column per factor group —
+    `<factor>_distance` (e.g. `value_distance`, `size_distance`, `prof_distance`) —
+    the group's **marginal (Euler) contribution to TE**:
+        contribution_g = Σ_{i in g} x_i (Σx)_i / TE
+    These are additive: the three group contributions sum exactly to `bucket_distance`
+    (a group can be negative if it hedges overall tracking error).
+
     Returns a new frame indexed like `df`: the 15 flat `Factor_Bucket` weight
-    columns + any passthrough columns + `out_col`. Original disaggregated columns
-    are dropped unless `keep_disaggregated=True`.
+    columns + any passthrough columns + `out_col` (+ the contribution columns).
+    Original disaggregated columns are dropped unless `keep_disaggregated=True`.
     """
     factor_map = DEFAULT_FACTOR_MAP if factor_map is None else factor_map
 
@@ -177,6 +185,22 @@ def add_bucket_distance(
         out = pd.concat([df, out[[c for c in out.columns if c not in df.columns]]], axis=1)
     out[out_col] = dist
 
+    # --- marginal (Euler) TE contribution per factor group ---
+    # component_i = x_i (Σx)_i / TE ; row-sum of all 15 = TE, so grouping by factor
+    # yields an additive split of bucket_distance into value/size/prof pieces.
+    if contributions:
+        XS = X @ Sig                                   # (Σx) per row, n x 15
+        comp = X * XS                                  # x_i (Σx)_i
+        with np.errstate(divide="ignore", invalid="ignore"):
+            comp_te = np.where(dist[:, None] > 0, comp / dist[:, None], 0.0)
+        factors = list(agg.columns.get_level_values("factor"))
+        for fac in dict.fromkeys(factors):             # unique, order-preserving
+            idx = [i for i, f in enumerate(factors) if f == fac]
+            key = fac.lower()
+            if key.startswith("prof"):
+                key = "prof"
+            out[f"{key}_distance"] = comp_te[:, idx].sum(axis=1)
+
     out.attrs["cov_window"] = f"{cov.attrs['start']}..{cov.attrs['end']}"
     out.attrs["cov_n_obs"] = cov.attrs["n_obs"]
     out.attrs["annualized"] = annualize
@@ -204,11 +228,17 @@ if __name__ == "__main__":
     res = add_bucket_distance(df, keep_disaggregated=False)
     print(f"Cov window: {res.attrs['cov_window']}  ({res.attrs['cov_n_obs']} months, "
           f"{'annualized' if res.attrs['annualized'] else 'monthly'})\n")
-    print("Aggregated to", sum(c not in ('bucket_distance',) for c in res.columns),
-          "weight columns:", [c for c in res.columns if c != 'bucket_distance'])
-    print("\nResult (bucket_distance = annualized TE in %):")
-    print(res[["bucket_distance"]].round(3))
+    contrib_cols = ["value_distance", "size_distance", "prof_distance"]
+    weight_cols = [c for c in res.columns if c not in ("bucket_distance", *contrib_cols)]
+    print("Aggregated to", len(weight_cols), "weight columns:", weight_cols)
+    print("\nResult (bucket_distance & group contributions = annualized TE in %):")
+    print(res[["bucket_distance", *contrib_cols]].round(3))
     assert abs(res.loc["VEH_A", "bucket_distance"]) < 1e-12, "flat vehicle must be 0"
     assert res.loc["VEH_C", "bucket_distance"] > 0
-    print("\nOK: flat vehicle -> 0.00%; +5%/-5% Value Q5/Q1 spread -> "
-          f"{res.loc['VEH_C','bucket_distance']:.2f}% annualized TE")
+    # contributions sum to total TE, and VEH_C's is essentially all Value
+    csum = res[contrib_cols].sum(axis=1)
+    assert np.allclose(csum, res["bucket_distance"]), "contributions must sum to TE"
+    assert res.loc["VEH_C", "value_distance"] > 0.99 * res.loc["VEH_C", "bucket_distance"]
+    print("\nOK: flat -> 0.00%; Value Q5/Q1 spread -> "
+          f"{res.loc['VEH_C','bucket_distance']:.2f}% TE, ~all from value_distance "
+          f"({res.loc['VEH_C','value_distance']:.2f}); contributions sum to TE.")

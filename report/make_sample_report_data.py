@@ -75,6 +75,24 @@ def distance(weights_row: np.ndarray, Sig: np.ndarray) -> float:
     return float(np.sqrt(max(q, 0.0)))
 
 
+def contributions(weights_row: np.ndarray, Sig: np.ndarray):
+    """Marginal (Euler) TE contribution of each factor block (value, size, prof).
+    Mirrors bucket_te.add_bucket_distance; the three sum to distance()."""
+    te = distance(weights_row, Sig)
+    if te <= 0:
+        return 0.0, 0.0, 0.0
+    comp = (weights_row * (Sig @ weights_row)) / te     # per-bucket, sums to te
+    return (float(comp[0:5].sum()), float(comp[5:10].sum()), float(comp[10:15].sum()))
+
+
+def _metrics(w, Sig):
+    """bucket_distance + the three factor-group contribution columns for a weight row."""
+    v, s, p = contributions(w, Sig)
+    return {"bucket_distance": round(distance(w, Sig), 4),
+            "value_distance": round(v, 4), "size_distance": round(s, 4),
+            "prof_distance": round(p, 4)}
+
+
 # --------------------------------------------------------------------------- #
 # Org hierarchy: PMDeputy -> PMName -> StrategyName -> funds
 # --------------------------------------------------------------------------- #
@@ -156,13 +174,11 @@ def build():
         base = {k: f[k] for k in ("VehicleCode", "FundName", "PMName", "PMDeputy",
                                   "StrategyName", "Currency", "Region", "AUM")}
         # every universe fund is present on date 1
-        r1 = dict(base); r1.update(zip(WEIGHT_COLS, np.round(w1, 4)))
-        r1["bucket_distance"] = round(distance(w1, Sig), 4)
+        r1 = dict(base); r1.update(zip(WEIGHT_COLS, np.round(w1, 4))); r1.update(_metrics(w1, Sig))
         rows1.append(r1)
         # EXITS: dropped by date 2 (present date 1, absent date 2)
         if f["VehicleCode"] not in exits:
-            r2 = dict(base); r2.update(zip(WEIGHT_COLS, np.round(w2, 4)))
-            r2["bucket_distance"] = round(distance(w2, Sig), 4)
+            r2 = dict(base); r2.update(zip(WEIGHT_COLS, np.round(w2, 4))); r2.update(_metrics(w2, Sig))
             rows2.append(r2)
 
     # ENTRIES: three brand-new funds that appear only on date 2
@@ -175,7 +191,7 @@ def build():
             "Currency": "USD", "Region": "Global",
             "AUM": round(float(rng.lognormal(6.0, 1.0)) * 1e6, 0),
             **dict(zip(WEIGHT_COLS, np.round(w, 4))),
-            "bucket_distance": round(distance(w, Sig), 4),
+            **_metrics(w, Sig),
         })
 
     return _frame(rows1, DATE1), _frame(rows2, DATE2)
@@ -190,7 +206,8 @@ def _frame(rows, date_key):
     # messy, interspersed column order (key cols not contiguous; junk mixed in)
     order = (["VehicleCode", "AsOfDate", "FundName", "StrategyName", "PMName",
               "PMDeputy", "Currency", "AUM", "Region", "Benchmark"]
-             + WEIGHT_COLS + ["bucket_distance", "InceptionDate", "RiskComment"])
+             + WEIGHT_COLS + ["bucket_distance", "value_distance", "size_distance",
+              "prof_distance", "InceptionDate", "RiskComment"])
     return df[order]
 
 

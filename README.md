@@ -94,12 +94,16 @@ leaving 15 columns — `Value_2..6`, `Size_2..6`, `Profit_2..6`.
 
 ```python
 import bucket_te as bt
-out = bt.add_bucket_distance(df)        # -> 15 weight cols + bucket_distance
+out = bt.add_bucket_distance(df)        # -> 15 weight cols + bucket_distance + 3 contributions
 ```
 - Weights are treated as **active** (relative to a benchmark; each factor block
   ~sums to zero), so the distance *is* tracking error — no benchmark subtraction.
   Pass them as **decimals** (0.05 = 5%); with returns in percent, `bucket_distance`
   is **annualized TE in percent**.
+- Also appends the **marginal (Euler) TE contribution of each factor group** —
+  `value_distance, size_distance, prof_distance` — where contribution_g =
+  Σ_{i∈g} x_i(Σx)_i / TE. These are additive: the three **sum to `bucket_distance`**
+  (a group can go negative when it hedges overall TE). Disable with `contributions=False`.
 - Σ is recomputed over a window you choose: `lookback_months=`, or `start=`/`end=`
   (default = full common history).
 - Bucket direction: suffix `2→6` maps to `Q1→Q5` (bucket 2 = the low end:

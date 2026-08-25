@@ -55,8 +55,17 @@
   code{background:var(--plane);padding:1px 5px;border-radius:4px;font-size:12px}
   details{margin-top:10px} summary{cursor:pointer;font-weight:600;font-size:13px;color:var(--ink2)}
 
+  /* tabs (the two candidate report versions) */
+  .tabbar{display:flex;gap:4px;margin-bottom:12px;border-bottom:1px solid var(--line)}
+  .tab{background:none;border:none;padding:8px 14px;font-size:13px;color:var(--muted);cursor:pointer;
+       border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tab:hover{color:var(--ink)} .tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+  .tab:disabled{opacity:.4;cursor:not-allowed}
   /* controls */
   .ctl{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  /* 3-component heatmap cells */
+  .hm3{display:flex;gap:3px}
+  .hm3 i{width:34px;height:16px;border-radius:3px;display:inline-block;border:1px solid rgba(11,11,11,.08);cursor:default}
   .ctl label{font-size:12px;color:var(--ink2)}
   input[type=range]{vertical-align:middle}
 
@@ -141,22 +150,23 @@
 
   <div class="card hidden" id="explorerCard">
     <h2>Hierarchy <span class="pill">PMDeputy &rsaquo; PM &rsaquo; Strategy &rsaquo; Fund</span></h2>
+    <div class="tabbar" id="heatTabs">
+      <button class="tab active" data-mode="bucket15">Version 1 &middot; 15 buckets</button>
+      <button class="tab" data-mode="comp3" id="tabComp">Version 2 &middot; 3 components</button>
+    </div>
     <div class="ctl">
       <label>View:
         <select class="btn" id="viewSel"><option value="tree">Hierarchy</option><option value="flat">Flat</option></select>
       </label>
       <button class="btn" id="expandAll">Expand all</button>
       <button class="btn" id="collapseAll">Collapse all</button>
-      <span class="legend" style="margin-left:auto">
-        <span>Active weight <span class="swatch"></span> under &rarr; over</span>
-        <span class="delta up">&#9650; rising</span><span class="delta down">&#9660; falling</span>
-      </span>
+      <span class="legend" id="explLegend" style="margin-left:auto"></span>
     </div>
     <div class="trow head" id="explHead">
       <div class="r" data-k="name" style="text-align:left">Name</div>
       <div class="r" data-k="distCurr">Dist current</div>
       <div class="r" data-k="dDist">&Delta; Dist</div>
-      <div class="r" style="text-align:left">Buckets (current)</div>
+      <div class="r" id="headHeat" style="text-align:left">Buckets (current)</div>
     </div>
     <div class="exp" id="explBody"></div>
     <details id="exitsBox"><summary></summary><div id="exitsList" class="note"></div></details>
@@ -215,6 +225,11 @@ function detectDateFromName(name){
 const _norm = s => String(s).toLowerCase().replace(/[^a-z0-9]/g,"");
 function detectWeightCols(header){ return header.filter(h => /^(value|size|prof(?:it)?)_[2-6]$/i.test(h)); }
 function detectDistanceCol(header){ return header.find(h => _norm(h) === "bucketdistance") || null; }
+// Per-factor marginal TE contribution columns (value_distance / size_distance / prof_distance).
+function detectComponentCols(header){
+  const f = re => header.find(h=> re.test(h)) || null;
+  return { value:f(/^value_distance$/i), size:f(/^size_distance$/i), prof:f(/^prof(?:it)?_distance$/i) };
+}
 function num(v){ const x = parseFloat(v); return Number.isFinite(x) ? x : null; }
 
 // Parse weight column names into {col,factor,bucket,idx} in display order (factor, bucket).
@@ -230,6 +245,9 @@ function parseWeightCols(wCols){
 function buildRecords(prior, current){
   const wCols = detectWeightCols(current.parsed.header);
   const dCol  = detectDistanceCol(current.parsed.header);
+  const cCols = detectComponentCols(current.parsed.header);
+  const hasComp = !!(cCols.value && cCols.size && cCols.prof);
+  const compVec = row => row ? [num(row[cCols.value]), num(row[cCols.size]), num(row[cCols.prof])] : null;
   const idCols = ["FundName","PMName","PMDeputy","StrategyName"];
   const index = f => { const m={}; f.parsed.rows.forEach(r=> m[r.VehicleCode]=r); return m; };
   const P = index(prior), C = index(current);
@@ -242,12 +260,16 @@ function buildRecords(prior, current){
     rec.wCurr  = c ? wCols.map(w=>num(c[w])) : null;
     rec.distPrior = p && dCol ? num(p[dCol]) : null;
     rec.distCurr  = c && dCol ? num(c[dCol]) : null;
+    rec.compPrior = hasComp && p ? compVec(p) : null;
+    rec.compCurr  = hasComp && c ? compVec(c) : null;
     if(p && c){ rec.dDist = (rec.distCurr!=null && rec.distPrior!=null) ? rec.distCurr-rec.distPrior : null; matched.push(rec); }
     else if(c){ entries.push(rec); } else { exits.push(rec); }
   });
+  const knownComp = [cCols.value, cCols.size, cCols.prof].filter(Boolean);
   return {matched, entries, exits, weightCols:wCols, distanceCol:dCol,
+          componentCols: hasComp ? cCols : null,
           ignored: current.parsed.header.filter(h=> !wCols.includes(h) && h!==dCol &&
-                     !["VehicleCode",...idCols].includes(h))};
+                     !knownComp.includes(h) && !["VehicleCode",...idCols].includes(h))};
 }
 function orderByDate(a, b){
   const da=detectDateFromName(a.name), db=detectDateFromName(b.name);
@@ -277,7 +299,7 @@ function buildTree(funds){
 }
 if(typeof globalThis!=="undefined")
   globalThis.__BR = {parseCSV, detectDateFromName, detectWeightCols, detectDistanceCol,
-                     parseWeightCols, buildRecords, orderByDate, buildTree};
+                     detectComponentCols, parseWeightCols, buildRecords, orderByDate, buildTree};
 
 /* ======================================================================= *
  *  DOM / UI                                                                *
@@ -286,6 +308,7 @@ function initUI(){
   const $ = id => document.getElementById(id);
   const drop=$("drop"), fileInput=$("file"), tip=$("tooltip");
   let loaded=[], swapped=false, model=null, wmeta=[], wscale=1, selected=null;
+  let heatMode="bucket15", compScale=1;     // "bucket15" (v1) or "comp3" (v2)
   const open=new Set();                     // expanded tree node paths
   const show = (id,on=true)=> $(id).classList.toggle("hidden", !on);
 
@@ -295,14 +318,15 @@ function initUI(){
     tip.style.top=(y+14)+"px"; };
   const hideTip=()=> tip.style.opacity=0;
 
-  // ---- diverging color for an active weight ----
+  // ---- diverging color: gray at 0, blue for +, red for - (consistent everywhere) ----
   const GRAY=[240,239,236], POS=[24,79,149], NEG=[176,28,28];
-  function wColor(w){
-    if(w==null) return "var(--line)";
-    const t=Math.min(Math.abs(w)/wscale,1), pole = w>=0?POS:NEG;
+  function divColor(v, scale){
+    if(v==null) return "var(--line)";
+    const t=Math.min(Math.abs(v)/(scale||1),1), pole = v>=0?POS:NEG;
     const c = GRAY.map((g,i)=> Math.round(g+(pole[i]-g)*t));
     return `rgb(${c[0]},${c[1]},${c[2]})`;
   }
+  const wColor = w => divColor(w, wscale);
 
   // ---- file loading ----
   drop.addEventListener("click", ()=> fileInput.click());
@@ -311,6 +335,12 @@ function initUI(){
   ["dragleave","drop"].forEach(ev=> drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.remove("hover"); }));
   drop.addEventListener("drop", e=> handleFiles(e.dataTransfer.files));
   $("swapBtn").addEventListener("click", ()=>{ swapped=!swapped; rebuild(); });
+  $("heatTabs").querySelectorAll(".tab").forEach(t=> t.addEventListener("click", ()=>{
+    if(t.disabled) return;
+    heatMode=t.dataset.mode;
+    $("heatTabs").querySelectorAll(".tab").forEach(x=> x.classList.toggle("active", x===t));
+    renderExplorer();
+  }));
 
   function handleFiles(fileList){
     const files=[...fileList].filter(f=> /\.csv$/i.test(f.name));
@@ -338,6 +368,15 @@ function initUI(){
     const abs=[];
     model.matched.concat(model.entries).forEach(r=> (r.wCurr||[]).forEach(w=>{ if(w!=null) abs.push(Math.abs(w)); }));
     abs.sort((x,y)=>x-y); wscale = abs.length ? (abs[Math.floor(abs.length*0.95)]||abs[abs.length-1]) : 1;
+    // component color scale (95th pct of |contribution|) + enable/disable v2 tab
+    const cabs=[];
+    if(model.componentCols) model.matched.concat(model.entries).forEach(r=> (r.compCurr||[]).forEach(v=>{ if(v!=null) cabs.push(Math.abs(v)); }));
+    cabs.sort((x,y)=>x-y); compScale = cabs.length ? (cabs[Math.floor(cabs.length*0.95)]||cabs[cabs.length-1]) : 1;
+    const tabC=$("tabComp");
+    tabC.disabled = !model.componentCols;
+    tabC.title = model.componentCols ? "" : "Data has no value_distance / size_distance / prof_distance columns";
+    if(!model.componentCols && heatMode==="comp3") heatMode="bucket15";
+    $("heatTabs").querySelectorAll(".tab").forEach(x=> x.classList.toggle("active", x.dataset.mode===heatMode));
     selected=null;
     // reset expansion: fully expanded by default
     setAll(true);
@@ -398,17 +437,32 @@ function initUI(){
     for(const [d,dn] of t.children){ open.add(d); for(const [p,pn] of dn.children){ open.add(d+"|"+p);
       for(const [s] of pn.children) open.add(d+"|"+p+"|"+s); } }
   }
-  function heat(r){
+  function heat(r){ return (heatMode==="comp3" && model.componentCols) ? heat3(r) : heat15(r); }
+  function heat15(r){
     if(!r.wCurr) return `<div class="hm"><small class="note" style="margin:0">no current weights</small></div>`;
-    let out=`<div class="hm" data-code="${r.VehicleCode}">`, last=null;
-    wmeta.forEach((m,k)=>{
+    let out=`<div class="hm">`, last=null;
+    wmeta.forEach(m=>{
       if(last!==null && m.factor!==last) out+=`</div><div class="grp5">`;
       else if(last===null) out+=`<div class="grp5">`;
       last=m.factor;
       const w=r.wCurr[m.idx];
-      out+=`<i style="background:${wColor(w)}" data-f="${m.factor}" data-b="${m.bucket}" data-w="${w==null?"":w.toFixed(4)}"></i>`;
+      out+=`<i style="background:${wColor(w)}" data-tip="${cap(m.factor)} Q${m.bucket-1}<br>weight ${w==null?"—":w.toFixed(4)}"></i>`;
     });
     return out+`</div></div>`;
+  }
+  const COMP=[["value","Value"],["size","Size"],["prof","Prof"]];
+  function heat3(r){
+    if(!r.compCurr) return `<div class="hm3"><small class="note" style="margin:0">no components</small></div>`;
+    let out=`<div class="hm3">`;
+    COMP.forEach(([key,lab],gi)=>{
+      const v=r.compCurr[gi];
+      const fac = key==="prof"?"profit":key;
+      const detail = wmeta.filter(m=>m.factor===fac)
+        .map(m=>{ const w=r.wCurr?r.wCurr[m.idx]:null; return `Q${m.bucket-1} ${w==null?"—":w.toFixed(4)}`; }).join(" &middot; ");
+      const tip = `${lab} contribution ${v==null?"—":v.toFixed(3)}<br><small>${detail}</small>`;
+      out+=`<i style="background:${divColor(v,compScale)}" data-tip="${tip}"></i>`;
+    });
+    return out+`</div>`;
   }
   const distCell=v=> v==null?'<span class="note">—</span>':v.toFixed(2);
   function deltaCell(v){ if(v==null) return '<span class="note">—</span>';
@@ -425,6 +479,12 @@ function initUI(){
       <div>${heat(r)}</div></div>`;
   }
   function renderExplorer(){
+    const comp = heatMode==="comp3" && model.componentCols;
+    $("headHeat").textContent = comp ? "Components (current)" : "Buckets (current)";
+    $("explLegend").innerHTML =
+      (comp ? `<span>TE contribution <span class="swatch"></span> hedges (&minus;) &rarr; adds (+)</span>`
+            : `<span>Active weight <span class="swatch"></span> under &rarr; over</span>`)
+      + `<span class="delta up">&#9650; rising</span><span class="delta down">&#9660; falling</span>`;
     const flat=$("viewSel").value==="flat";
     const body=$("explBody");
     if(flat){
@@ -453,9 +513,10 @@ function initUI(){
         const k=el.dataset.path; open.has(k)?open.delete(k):open.add(k); renderExplorer(); }));
     }
     body.querySelectorAll(".fundrow").forEach(el=> el.addEventListener("click",()=> selectFund(el.dataset.code)));
-    body.querySelectorAll(".hm i").forEach(el=> el.addEventListener("mousemove",e=>{
-      showTip(`${cap(el.dataset.f)} Q${el.dataset.b-1}<br>weight ${el.dataset.w||"—"}`,e.clientX,e.clientY); }));
-    body.querySelectorAll(".hm i").forEach(el=> el.addEventListener("mouseleave",hideTip));
+    body.querySelectorAll(".hm i,.hm3 i").forEach(el=>{
+      el.addEventListener("mousemove",e=> showTip(el.dataset.tip, e.clientX, e.clientY));
+      el.addEventListener("mouseleave", hideTip);
+    });
   }
   function grpRow(name,node,indent,path){
     const car=open.has(path)?"":" closed";
