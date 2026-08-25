@@ -4,6 +4,9 @@ data/
 # Generated results (covariance, lined-up returns, retained sub-tables)
 output/
 
+# Generated sample data for the report (reproducible via report/make_sample_report_data.py)
+report/sample_portfolios_*.csv
+
 # Python
 __pycache__/
 *.pyc
