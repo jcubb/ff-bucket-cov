@@ -161,6 +161,16 @@
       </label>
       <button class="btn" id="expandAll">Expand all</button>
       <button class="btn" id="collapseAll">Collapse all</button>
+      <label id="trimWrap" class="hidden">Trim outliers:
+        <select class="btn" id="trimSel" title="Scale component colors to this trimmed max, so a few extreme funds don't wash out the rest">
+          <option value="0">none</option>
+          <option value="0.05">5%</option>
+          <option value="0.1">10%</option>
+          <option value="0.25" selected>25%</option>
+          <option value="0.4">40%</option>
+          <option value="0.5">50%</option>
+        </select>
+      </label>
       <span class="legend" id="explLegend" style="margin-left:auto"></span>
     </div>
     <div class="trow head" id="explHead">
@@ -364,6 +374,21 @@ function initUI(){
   });
   function fail(msg){ const el=$("loadErr"); el.textContent=msg; el.classList.remove("hidden"); }
 
+  // trimmed max for the component color scale: q-quantile of |contribution|, where
+  // q = 1 - trim. A few extreme funds clamp to full red instead of flattening the rest.
+  function pctileAbs(arr, q){
+    if(!arr.length) return 1;
+    const s=arr.map(Math.abs).sort((a,b)=>a-b);
+    return s[Math.min(s.length-1, Math.floor(s.length*q))] || s[s.length-1] || 1;
+  }
+  function computeCompScale(){
+    const trim = parseFloat($("trimSel").value)||0, cv=[];
+    if(model && model.componentCols)
+      model.matched.concat(model.entries).forEach(r=> (r.compCurr||[]).forEach(v=>{ if(v!=null) cv.push(v); }));
+    compScale = pctileAbs(cv, 1-trim);
+  }
+  $("trimSel").addEventListener("change", ()=>{ computeCompScale(); renderExplorer(); });
+
   function rebuild(){
     let [a,b]=loaded, ord=orderByDate(a,b), prior=ord.prior, current=ord.current;
     if(swapped)[prior,current]=[current,prior];
@@ -376,10 +401,7 @@ function initUI(){
     const abs=[];
     model.matched.concat(model.entries).forEach(r=> (r.wCurr||[]).forEach(w=>{ if(w!=null) abs.push(Math.abs(w)); }));
     abs.sort((x,y)=>x-y); wscale = abs.length ? (abs[Math.floor(abs.length*0.95)]||abs[abs.length-1]) : 1;
-    // component color scale (95th pct of |contribution|) + enable/disable v2 tab
-    const cabs=[];
-    if(model.componentCols) model.matched.concat(model.entries).forEach(r=> (r.compCurr||[]).forEach(v=>{ if(v!=null) cabs.push(Math.abs(v)); }));
-    cabs.sort((x,y)=>x-y); compScale = cabs.length ? (cabs[Math.floor(cabs.length*0.95)]||cabs[cabs.length-1]) : 1;
+    computeCompScale();          // component scale honors the outlier-trim control
     const tabC=$("tabComp");
     tabC.disabled = !model.componentCols;
     tabC.title = model.componentCols ? "" : "Data has no value_distance / size_distance / prof_distance columns";
@@ -495,6 +517,7 @@ function initUI(){
   }
   function renderExplorer(){
     const comp = heatMode==="comp3" && model.componentCols;
+    $("trimWrap").classList.toggle("hidden", !comp);
     $("headHeat").textContent = comp ? "Components (current)" : "Buckets (current)";
     $("explLegend").innerHTML =
       (comp ? `<span>TE contribution: hedges <span class="swatch rev"></span> bigger part (redder)</span>`

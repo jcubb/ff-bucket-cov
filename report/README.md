@@ -35,8 +35,10 @@ and component columns are auto-detected (matching is case-insensitive).
     contributions (`value_/size_/prof_distance`) — **redder = a bigger part of the
     fund's distance**, blue = a factor that *hedges* (negative contribution), pale ≈
     on target. Hover a cell for its **% share of TE**, the **Δ vs the prior date**
-    (trend), and that factor's five underlying bucket weights. (Needs the component
-    columns.)
+    (trend), and that factor's five underlying bucket weights. A **Trim outliers**
+    control scales the color to a trimmed max (default 25%) so a few extreme funds
+    clamp to full red instead of washing the rest of the book pale. (Needs the
+    component columns.)
 - **Bucket posture** — click a fund to see its 15 active weights as a diverging bar
   chart (filled = current, marker = prior; up = overweight, down = underweight).
 
