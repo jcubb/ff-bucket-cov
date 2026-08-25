@@ -30,6 +30,7 @@ import numpy as np
 import pandas as pd
 
 MONTHS_PER_YEAR = 12
+MIN_MONTHS = 120  # estimation-window floor (10 years) unless overridden
 DEFAULT_RETURNS = os.path.join("output", "quintiles_monthly_vw_returns.csv")
 
 
@@ -69,7 +70,7 @@ def select_window(returns: pd.DataFrame, lookback_months: int | None = None,
 
 
 def equal_weighted_cov(returns: pd.DataFrame, lookback_months: int | None = None,
-                       min_months: int = 120, annualize: bool = True,
+                       min_months: int = MIN_MONTHS, annualize: bool = True,
                        complete_case: bool = True) -> pd.DataFrame:
     """Ordinary (equal per-observation weight) sample covariance matrix.
 
@@ -123,7 +124,7 @@ def diagnostics(cov: pd.DataFrame) -> dict:
 # Runner / report
 # --------------------------------------------------------------------------- #
 def run_cov(returns_path: str = DEFAULT_RETURNS, out_dir: str = "output",
-            lookback_months: int | None = None, min_months: int = 120,
+            lookback_months: int | None = None, min_months: int = MIN_MONTHS,
             annualize: bool = True, verbose: bool = True):
     """Load a lined-up returns file, compute the equal-weighted sample covariance
     over the longest common window (or a trailing lookback), print a summary, and
