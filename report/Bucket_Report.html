@@ -36,6 +36,11 @@
         color:var(--ink2);cursor:pointer;transition:.15s;background:var(--surface)}
   #drop.hover{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
   #drop strong{color:var(--ink)}
+  #drop .drop-compact{display:none}
+  #drop.collapsed{padding:9px 16px}
+  #drop.collapsed .drop-full{display:none}
+  #drop.collapsed .drop-compact{display:block;font-size:13px;color:var(--muted)}
+  #drop.collapsed #dropCompactLabel{color:var(--ink);font-weight:600}
   .hidden{display:none!important}
   .meta{display:flex;flex-wrap:wrap;gap:22px;align-items:center}
   .meta .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
@@ -121,8 +126,11 @@
 <main>
   <div class="card" id="dropCard">
     <div id="drop">
-      <p style="font-size:16px;margin:0 0 6px"><strong>Drop the two portfolio CSV files here</strong></p>
-      <p style="margin:0">or click to choose &mdash; dates are read from the filenames</p>
+      <div class="drop-full">
+        <p style="font-size:16px;margin:0 0 6px"><strong>Drop the two portfolio CSV files here</strong></p>
+        <p style="margin:0">or click to choose &mdash; dates are read from the filenames</p>
+      </div>
+      <div class="drop-compact"><span id="dropCompactLabel">Files loaded</span> &middot; click or drop to load two new files</div>
       <input id="file" type="file" accept=".csv,text/csv" multiple class="hidden">
     </div>
     <div id="loadErr" class="err hidden"></div>
@@ -372,7 +380,7 @@ function initUI(){
     fr.onload=()=>{ try{ res({name:file.name, parsed:parseCSV(fr.result)}); }catch(e){ rej(e); } };
     fr.onerror=()=> rej(fr.error); fr.readAsText(file);
   });
-  function fail(msg){ const el=$("loadErr"); el.textContent=msg; el.classList.remove("hidden"); }
+  function fail(msg){ $("drop").classList.remove("collapsed"); const el=$("loadErr"); el.textContent=msg; el.classList.remove("hidden"); }
 
   // trimmed max for the component color scale: q-quantile of |contribution|, where
   // q = 1 - trim. A few extreme funds clamp to full red instead of flattening the rest.
@@ -415,6 +423,9 @@ function initUI(){
 
   function render(){
     ["summaryCard","riseCard","explorerCard"].forEach(id=>show(id));
+    // collapse the drop zone once data is in; it stays clickable/droppable to replace
+    $("drop").classList.add("collapsed");
+    $("dropCompactLabel").textContent=`Loaded: ${model._priorDate} → ${model._currDate}`;
     $("priorDate").textContent=model._priorDate; $("currDate").textContent=model._currDate;
     renderTiles(); renderSchema(); renderRising(); renderExplorer(); renderExits();
   }
