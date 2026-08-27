@@ -11,8 +11,10 @@ french_portfolios.run()            data layer: parse/align French files
   -> output/quintiles_monthly_vw_returns.csv   (15 series: 3 factors x Q1..Q5)
 covariance.equal_weighted_cov()    15x15 equal-weighted sample Σ (annualized %)
 bucket_te.add_bucket_distance()    per-vehicle TE = sqrt(xᵀΣx) + Euler contributions
-report/Bucket_Report.html          drag two dated CSVs -> compare across dates
 ```
+
+(The drag-two-CSVs HTML comparison report lives in `report/`, which is local-only
+and gitignored — see the untracked `CLAUDE.local.md`.)
 
 Downstream of the top-level tracking-error problem in the workspace `CLAUDE.md`
 (the "Route B" quintile-return-history approach). This repo is the *ready-made
@@ -30,10 +32,9 @@ French portfolio* path; the Barra cross-sectional model is a separate project
   sample covariance of the lined-up returns. Common-window (complete-case) default
   → one PSD matrix over 1963-07..present (OP starts 1963). `MIN_MONTHS = 120` floor.
 - **`bucket_te.py`** — `add_bucket_distance(df, ...)`: the core deliverable (below).
-- **`report/`** — the self-contained HTML comparison report + its sample-data
-  generator and tests. See `report/README.md`.
 - **Tests:** `python test_offline.py` (parser, synthetic), `python bucket_te.py`
-  (TE + contributions self-check), `node report/_selftest.js` (report data layer).
+  (TE + contributions self-check). (The report's `node _selftest.js` lives in the
+  local-only `report/` — see `CLAUDE.local.md`.)
 
 ## Data & math conventions (the contract)
 
@@ -55,26 +56,13 @@ French portfolio* path; the Barra cross-sectional model is a separate project
     sum to `bucket_distance`**; a group can be **negative** when it hedges.
 - Keep the cap-weighting / centering / window coherent end-to-end (workspace theme).
 
-## Report (`report/Bucket_Report.html`)
-
-Single self-contained page, all client-side, **no data leaves the browser**. Drag
-two dated CSVs → dates parsed from **filenames** → merge on **`VehicleCode`**. Two
-candidate versions via a tab bar (we'll keep one): **V1 = 15-bucket weight heatmap**,
-**V2 = 3-component heatmap** (`value_/size_/prof_distance`, redder = bigger part of
-TE, blue = hedges; hover → % share, Δ-vs-prior trend, underlying buckets; adjustable
-outlier-trim on the color scale). Hierarchy pivot **PMDeputy › PM › Strategy › Fund**
-with **no metric roll-ups** (metrics only on fund rows; parents show counts). The
-pure data layer (parse/date/merge/tree) is split from the DOM and exported as
-`globalThis.__BR` for `report/_selftest.js`.
-
 ## Conventions & gotchas
 
 - **Paths anchor to `__file__`** (`REPO_DIR`), never cwd — defaults for `data/`,
   `output/`, and the returns file resolve off the module. No shared `paths.py`
   (overkill for this size).
-- **Gitignored** (regenerable, never tracked): `data/`, `output/`,
-  `report/sample_portfolios_*.csv`, `__pycache__/`. Track code + READMEs + the
-  assembled HTML.
+- **Gitignored** (regenerable or local-only, never tracked): `data/`, `output/`,
+  the whole `report/` folder, `__pycache__/`, `CLAUDE.local.md`. Track code + READMEs.
 - **Windows console:** `print()` with non-ASCII (Σ, Δ, ▲) raises `UnicodeEncodeError`
   under cp1252 — keep terminal prints ASCII (HTML/files are UTF-8, fine).
 - **Downloads work** in-sandbox from `mba.tuck.dartmouth.edu` (no manual zips needed).
@@ -87,11 +75,7 @@ pure data layer (parse/date/merge/tree) is split from the DOM and exported as
 ```bash
 python french_portfolios.py                 # download + build output/ (needs network)
 python -c "import covariance as cv; cv.run_cov()"
-python report/make_sample_report_data.py    # regenerate the two sample CSVs
-python test_offline.py && python bucket_te.py && node report/_selftest.js
+python test_offline.py && python bucket_te.py
 ```
 
-Preview the HTML report headlessly (screenshot): inject
-`window.__PRELOAD=[{name,text},…]` before `</body>` and render with
-`chrome --headless=new --screenshot --virtual-time-budget=2000`. The `__PRELOAD`
-hook is inert in normal use.
+(Report build/preview/test commands are in the local-only `CLAUDE.local.md`.)
